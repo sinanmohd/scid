@@ -3,6 +3,7 @@ package git
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-git/v6"
@@ -18,7 +19,55 @@ type Git struct {
 	changedPaths     []string
 }
 
-func New(repoUrl, branchName string) (*Git, error) {
+func checkoutTag(tag *config.Tag, repo *git.Repository) error {
+	var hash *plumbing.Hash
+	var err error
+
+	if tag.Model == config.TagModelStatic {
+		hash, err = repo.ResolveRevision(plumbing.Revision(tag.Value))
+		if err != nil {
+			return err
+		}
+	} else {
+		tagRefs, err := repo.Tags()
+		if err != nil {
+			return err
+		}
+
+		for {
+			tagRef, err := tagRefs.Next()
+			if err != nil {
+				return err
+			}
+
+			tagName := tagRef.Name().String()
+			matched, err := regexp.MatchString(tag.Value, tagName)
+			if err != nil {
+				return err
+			}
+			if !matched {
+				continue
+			}
+
+			h := tagRef.Hash()
+			hash = &h
+			break
+		}
+	}
+
+	workTree, err := repo.Worktree()
+	if err != nil {
+		return err
+	}
+
+	workTree.Checkout(&git.CheckoutOptions{
+		Hash: *hash,
+	})
+
+	return nil
+}
+
+func New(repoUrl, branchName string, tag *config.Tag) (*Git, error) {
 	sum256 := blake3.Sum256([]byte(repoUrl + branchName))
 	localPath := fmt.Sprintf("%x", sum256)
 
@@ -32,6 +81,10 @@ func New(repoUrl, branchName string) (*Git, error) {
 		})
 		if err != nil {
 			return nil, err
+		}
+
+		if tag != nil {
+			checkoutTag(tag, repo)
 		}
 
 		headRef, err := repo.Head()
@@ -64,18 +117,39 @@ func New(repoUrl, branchName string) (*Git, error) {
 	if err != nil {
 		return nil, err
 	}
+	if tag == nil {
+		err = workTree.Checkout(&git.CheckoutOptions{
+			Branch: plumbing.ReferenceName(branchName),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	err = workTree.Pull(&git.PullOptions{
-		SingleBranch: true,
+		SingleBranch: false,
 	})
+
 	if err == git.NoErrAlreadyUpToDate {
-		return &Git{
-			LocalPath: localPath,
-			repo:      repo,
-			NewHash:   &oldHash,
-			OldHash:   &oldHash,
-		}, nil
+		headRef, err = repo.Head()
+		if err != nil {
+			return nil, err
+		}
+		afterPullHash := headRef.Hash()
+
+		if afterPullHash == oldHash {
+			return &Git{
+				LocalPath: localPath,
+				repo:      repo,
+				NewHash:   &oldHash,
+				OldHash:   &oldHash,
+			}, nil
+		}
 	} else if err != nil {
 		return nil, err
+	}
+
+	if tag != nil {
+		checkoutTag(tag, repo)
 	}
 
 	headRef, err = repo.Head()

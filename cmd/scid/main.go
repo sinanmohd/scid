@@ -41,7 +41,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Creating config")
 	}
 
-	g, err := git.New(config.Config.RepoUrl, config.Config.Branch)
+	g, err := git.New(config.Config.RepoUrl, config.Config.Branch, config.Config.Tag)
 	if err != nil {
 		log.Fatal().Err(err)
 	}
