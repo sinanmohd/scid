@@ -15,19 +15,18 @@ type SlackConfig struct {
 }
 
 type JobConfig struct {
-	Name       string   `toml:"name" validate:"required"`
 	ExecLine   []string `toml:"exec_line" validate:"required"`
 	WatchPaths []string `toml:"watch_paths" validate:"required"`
 	SlackColor string   `toml:"slack_color" validate:"hexcolor"`
 }
 
 type SCIDonfig struct {
-	Branch         string       `toml:"branch" validate:"required"`
-	RepoUrl        string       `toml:"repo_url" validate:"required"`
-	DryRun         bool         `toml:"dry_run"`
-	HelmChartsPath string       `toml:"helm_charts_path"`
-	Slack          *SlackConfig `toml:"slack"`
-	Jobs           []JobConfig  `toml:"jobs" validate:"dive"`
+	Branch         string               `toml:"branch" validate:"required"`
+	RepoUrl        string               `toml:"repo_url" validate:"required"`
+	DryRun         bool                 `toml:"dry_run"`
+	HelmChartsPath string               `toml:"helm_charts_path"`
+	Slack          *SlackConfig         `toml:"slack"`
+	Jobs           map[string]JobConfig `toml:"jobs" validate:"dive"`
 }
 
 var Config SCIDonfig

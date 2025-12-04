@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func JobRunIfChaged(job config.JobConfig, g *git.Git) error {
+func JobRunIfChaged(name string, job config.JobConfig, g *git.Git) error {
 	output, changedPath, execErr, err := ExecIfChaged(job.WatchPaths, job.ExecLine, g)
 	if err != nil {
 		return err
@@ -28,10 +28,10 @@ func JobRunIfChaged(job config.JobConfig, g *git.Git) error {
 
 	if execErr != nil {
 		extraText := fmt.Sprintf("watch path %s changed\n%s: %s", changedPath, execErr.Error(), output)
-		err = slack.SendMesg(g, color, job.Name, false, extraText)
+		err = slack.SendMesg(g, color, name, false, extraText)
 	} else {
 		extraText := fmt.Sprintf("watch path %s changed\n%s", changedPath, output)
-		err = slack.SendMesg(g, color, job.Name, true, extraText)
+		err = slack.SendMesg(g, color, name, true, extraText)
 	}
 	if err != nil {
 		return err
@@ -40,12 +40,12 @@ func JobRunIfChaged(job config.JobConfig, g *git.Git) error {
 	return nil
 }
 
-func JobRunIfChagedWrapped(job config.JobConfig, bg *git.Git, wg *sync.WaitGroup) {
+func JobRunIfChagedWrapped(name string, job config.JobConfig, bg *git.Git, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
-		err := JobRunIfChaged(job, bg)
+		err := JobRunIfChaged(name, job, bg)
 		if err != nil {
-			log.Error().Err(err).Msgf("Running Job %s", job.Name)
+			log.Error().Err(err).Msgf("Running Job %s", name)
 		}
 
 		wg.Done()
@@ -54,8 +54,8 @@ func JobRunIfChagedWrapped(job config.JobConfig, bg *git.Git, wg *sync.WaitGroup
 
 func JobsRunIfChaged(g *git.Git) error {
 	var jobWg sync.WaitGroup
-	for _, job := range config.Config.Jobs {
-		JobRunIfChagedWrapped(job, g, &jobWg)
+	for name, job := range config.Config.Jobs {
+		JobRunIfChagedWrapped(name, job, g, &jobWg)
 	}
 	jobWg.Wait()
 
