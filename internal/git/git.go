@@ -19,40 +19,43 @@ type Git struct {
 	changedPaths     []string
 }
 
-func checkoutTag(tag *config.Tag, repo *git.Repository) error {
-	var hash *plumbing.Hash
-	var err error
-
+func hashFromTag(tag *config.Tag, repo *git.Repository) (*plumbing.Hash, error) {
 	if tag.Model == config.TagModelStatic {
-		hash, err = repo.ResolveRevision(plumbing.Revision(tag.Value))
+		hash, err := repo.ResolveRevision(plumbing.Revision(tag.Value))
+		return hash, err
+	}
+
+	tagRefs, err := repo.Tags()
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		tagRef, err := tagRefs.Next()
 		if err != nil {
-			return err
-		}
-	} else {
-		tagRefs, err := repo.Tags()
-		if err != nil {
-			return err
-		}
-
-		for {
-			tagRef, err := tagRefs.Next()
-			if err != nil {
-				return err
-			}
-
-			tagName := tagRef.Name().String()
-			matched, err := regexp.MatchString(tag.Value, tagName)
-			if err != nil {
-				return err
-			}
-			if !matched {
-				continue
-			}
-
-			h := tagRef.Hash()
-			hash = &h
+			return nil, err
+		} else if tagRef == nil {
 			break
 		}
+
+		tagName := tagRef.Name().String()
+		matched, err := regexp.MatchString(tag.Value, tagName)
+		if err != nil {
+			return nil, err
+		}
+		if matched {
+			hash := tagRef.Hash()
+			return &hash, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no such tag: %s", tag.Value)
+}
+
+func checkoutTag(tag *config.Tag, repo *git.Repository) error {
+	hash, err := hashFromTag(tag, repo)
+	if err != nil {
+		return err
 	}
 
 	workTree, err := repo.Worktree()
@@ -67,42 +70,59 @@ func checkoutTag(tag *config.Tag, repo *git.Repository) error {
 	return nil
 }
 
-func New(repoUrl, branchName string, tag *config.Tag) (*Git, error) {
-	sum256 := blake3.Sum256([]byte(repoUrl + branchName))
-	localPath := fmt.Sprintf("%x", sum256)
-
-	_, err := os.Stat(localPath)
-	if os.IsNotExist(err) {
-		repo, err := git.PlainClone(localPath, &git.CloneOptions{
-			URL:           repoUrl,
-			SingleBranch:  true,
-			ReferenceName: plumbing.ReferenceName(branchName),
-			Progress:      os.Stdout,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		if tag != nil {
-			checkoutTag(tag, repo)
-		}
-
-		headRef, err := repo.Head()
-		if err != nil {
-			return nil, err
-		}
-		newHash := headRef.Hash()
-
-		return &Git{
-			LocalPath: localPath,
-			repo:      repo,
-			NewHash:   &newHash,
-			OldHash:   nil,
-		}, nil
-	} else if err != nil {
+func cloneRepo(localPath, repoUrl, branchName string, tag *config.Tag) (*Git, error) {
+	repo, err := git.PlainClone(localPath, &git.CloneOptions{
+		URL:           repoUrl,
+		SingleBranch:  true,
+		ReferenceName: plumbing.NewBranchReferenceName(branchName),
+		Progress:      os.Stdout,
+	})
+	if err != nil {
 		return nil, err
 	}
 
+	if tag != nil {
+		err = checkoutTag(tag, repo)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	headRef, err := repo.Head()
+	if err != nil {
+		return nil, err
+	}
+	newHash := headRef.Hash()
+
+	return &Git{
+		LocalPath: localPath,
+		repo:      repo,
+		NewHash:   &newHash,
+		OldHash:   nil,
+	}, nil
+}
+
+func pullBranch(workTree *git.Worktree, branchName string) error {
+	err := workTree.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(branchName),
+	})
+	if err != nil {
+		return err
+	}
+
+	err = workTree.Pull(&git.PullOptions{
+		SingleBranch: true,
+	})
+
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		return err
+	}
+
+	return nil
+}
+
+func updateRepo(localPath, branchName string, tag *config.Tag) (*Git, error) {
+	// get oldHash
 	repo, err := git.PlainOpen(localPath)
 	if err != nil {
 		return nil, err
@@ -113,51 +133,28 @@ func New(repoUrl, branchName string, tag *config.Tag) (*Git, error) {
 	}
 	oldHash := headRef.Hash()
 
+	// get newHash
 	workTree, err := repo.Worktree()
 	if err != nil {
 		return nil, err
 	}
-	if tag == nil {
-		err = workTree.Checkout(&git.CheckoutOptions{
-			Branch: plumbing.ReferenceName(branchName),
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	err = workTree.Pull(&git.PullOptions{
-		SingleBranch: false,
-	})
-
-	if err == git.NoErrAlreadyUpToDate {
-		headRef, err = repo.Head()
-		if err != nil {
-			return nil, err
-		}
-		afterPullHash := headRef.Hash()
-
-		if afterPullHash == oldHash {
-			return &Git{
-				LocalPath: localPath,
-				repo:      repo,
-				NewHash:   &oldHash,
-				OldHash:   &oldHash,
-			}, nil
-		}
-	} else if err != nil {
+	err = pullBranch(workTree, branchName)
+	if err != nil {
 		return nil, err
 	}
-
 	if tag != nil {
-		checkoutTag(tag, repo)
+		err = checkoutTag(tag, repo)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	headRef, err = repo.Head()
 	if err != nil {
 		return nil, err
 	}
 	newHash := headRef.Hash()
 
+	// get changed paths
 	g := Git{
 		LocalPath: localPath,
 		repo:      repo,
@@ -170,6 +167,20 @@ func New(repoUrl, branchName string, tag *config.Tag) (*Git, error) {
 	}
 
 	return &g, nil
+}
+
+func New(repoUrl, branchName string, tag *config.Tag) (*Git, error) {
+	sum256 := blake3.Sum256([]byte(repoUrl + branchName))
+	localPath := fmt.Sprintf("%x", sum256)
+
+	_, err := os.Stat(localPath)
+	if os.IsNotExist(err) {
+		return cloneRepo(localPath, repoUrl, branchName, tag)
+	} else if err != nil {
+		return nil, err
+	}
+
+	return updateRepo(localPath, branchName, tag)
 }
 
 // go-git has concurrency issues: https://github.com/go-git/go-git/issues/773

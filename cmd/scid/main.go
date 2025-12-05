@@ -1,11 +1,10 @@
 package main
 
 import (
+	"log"
+	"log/slog"
 	"os"
 	"sync"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 
 	"sinanmohd.com/scid/internal/config"
 	"sinanmohd.com/scid/internal/driver"
@@ -33,39 +32,38 @@ func scid(g *git.Git) {
 }
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	defer log.Info().Msg("See you, bye")
+	defer slog.Info("see you, bye")
 
 	err := config.Init()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Creating config")
+		log.Fatal("creating config: ", err)
 	}
 
 	g, err := git.New(config.Config.RepoUrl, config.Config.Branch, config.Config.Tag)
 	if err != nil {
-		log.Fatal().Err(err)
+		log.Fatal("pulling git repo: ", err)
 	}
 
 	originalDir, err := os.Getwd()
 	if err != nil {
-		log.Fatal().Err(err)
+		log.Fatal(err)
 	}
 	err = os.Chdir(g.LocalPath)
 	if err != nil {
-		log.Fatal().Err(err)
+		log.Fatal(err)
 	}
 	defer func() {
 		err = os.Chdir(originalDir)
 		if err != nil {
-			log.Error().Err(err)
+			log.Fatal(err)
 		}
 	}()
 
 	if !g.HeadMoved() {
-		log.Info().Msg("No new commits : (")
+		slog.Info("no new commits : (")
 		return
 	}
 
-	log.Info().Msgf("Branch HEAD moved: %s -> %s", g.OldHash, g.NewHash)
+	slog.Info("branch HEAD moved", "oldHash", g.OldHash, "newHash", g.NewHash)
 	scid(g)
 }

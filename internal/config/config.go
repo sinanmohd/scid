@@ -36,7 +36,7 @@ type Tag struct {
 
 type Helm struct {
 	Env        string `toml:"env"`
-	ChartsPath string `toml:"helm_charts_path" validate:"required"`
+	ChartsPath string `toml:"charts_path" validate:"required"`
 }
 
 type SCIDonfig struct {
