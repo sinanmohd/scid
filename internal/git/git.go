@@ -1,13 +1,15 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
+	"golang.org/x/mod/semver"
 	"lukechampine.com/blake3"
 	"sinanmohd.com/scid/internal/config"
 )
@@ -30,26 +32,23 @@ func hashFromTag(tag *config.Tag, repo *git.Repository) (*plumbing.Hash, error) 
 		return nil, err
 	}
 
-	for {
-		tagRef, err := tagRefs.Next()
-		if err != nil {
-			return nil, err
-		} else if tagRef == nil {
-			break
+	var versions []string
+	tagRefs.ForEach(func(tafRef *plumbing.Reference) error {
+		// golnag semver is not spec compliant
+		version := "v" + tafRef.Name().Short()
+		if semver.IsValid(version) {
+			versions = append(versions, version)
 		}
-
-		tagName := tagRef.Name().String()
-		matched, err := regexp.MatchString(tag.Value, tagName)
-		if err != nil {
-			return nil, err
-		}
-		if matched {
-			hash := tagRef.Hash()
-			return &hash, nil
-		}
+		return nil
+	})
+	if len(versions) <= 0 {
+		return nil, errors.New("No semver tag")
 	}
 
-	return nil, fmt.Errorf("no such tag: %s", tag.Value)
+	// golnag semver is not spec compliant
+	latestVersion := slices.MaxFunc(versions, semver.Compare)[1:]
+	hash, err := repo.ResolveRevision(plumbing.Revision(latestVersion))
+	return hash, err
 }
 
 func checkoutTag(tag *config.Tag, repo *git.Repository) error {

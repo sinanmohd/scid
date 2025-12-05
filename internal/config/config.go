@@ -25,8 +25,8 @@ type TagModel string
 const (
 	// get static tag, tag name in Tag.Value
 	TagModelStatic TagModel = "static"
-	// get latest tag with matching regex, regex in Tag.Value
-	TagModelRegex TagModel = "regex"
+	// get latest semver, Tag.Value ignored
+	TagModelSemver TagModel = "semver"
 )
 
 type Tag struct {

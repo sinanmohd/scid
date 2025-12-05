@@ -5,3 +5,5 @@ main
 # dev repos
 de79d662388ed22ece07a74560ed62247296cb0d09b4d9efbb9b0ae804e7a8dd
 4830db16826c4a152edb77c09bf1d2252b139fab0e279d0ba741d774ab95bdce
+# test scid.toml
+scid.toml
