@@ -31,7 +31,7 @@ const (
 
 type Tag struct {
 	Model TagModel `toml:"model" validate:"required"`
-	Value string   `toml:"value" validate:"required"`
+	Value string   `toml:"value"`
 }
 
 type Helm struct {
