@@ -10,7 +10,12 @@ import (
 )
 
 func ExecIfChaged(paths, execLine []string, g *git.Git) (string, string, error /* exec error */, error) {
-	changed := g.ArePathsChanged(paths)
+	var changed string
+	if g.OldHash == nil {
+		changed = "/"
+	} else {
+		changed = g.ArePathsChanged(paths)
+	}
 	if changed == "" {
 		log.Info().Msgf("Skipping %v, because 0 watch paths changed", execLine)
 		return "", "", nil, nil
