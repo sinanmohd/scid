@@ -27,6 +27,8 @@ const (
 	TagModelStatic TagModel = "static"
 	// get latest semver, Tag.Value ignored
 	TagModelSemver TagModel = "semver"
+	// tag disabled, Tag.Value ignored
+	TagModelDisabled TagModel = "disabled"
 )
 
 type Tag struct {
@@ -42,7 +44,7 @@ type Helm struct {
 type SCIDonfig struct {
 	Branch  string `toml:"branch" validate:"required"`
 	RepoUrl string `toml:"repo_url" validate:"required"`
-	Tag     *Tag   `toml:"tag"`
+	Tag     Tag    `toml:"tag"`
 
 	DryRun bool         `toml:"dry_run"`
 	Slack  *SlackConfig `toml:"slack"`
@@ -69,6 +71,12 @@ func Init() error {
 		} else if configPath != defaultConfigPath {
 			return err
 		}
+	}
+
+	Config = SCIDonfig{
+		Tag: Tag{
+			Model: TagModelDisabled,
+		},
 	}
 
 	if _, err := os.Stat(configPath); err == nil {

@@ -22,33 +22,37 @@ type Git struct {
 }
 
 func hashFromTag(tag *config.Tag, repo *git.Repository) (*plumbing.Hash, error) {
-	if tag.Model == config.TagModelStatic {
+	switch tag.Model {
+	case config.TagModelStatic:
 		hash, err := repo.ResolveRevision(plumbing.Revision(tag.Value))
 		return hash, err
-	}
-
-	tagRefs, err := repo.Tags()
-	if err != nil {
-		return nil, err
-	}
-
-	var versions []string
-	tagRefs.ForEach(func(tafRef *plumbing.Reference) error {
-		// golnag semver is not spec compliant
-		version := "v" + tafRef.Name().Short()
-		if semver.IsValid(version) {
-			versions = append(versions, version)
+	case config.TagModelSemver:
+		tagRefs, err := repo.Tags()
+		if err != nil {
+			return nil, err
 		}
-		return nil
-	})
-	if len(versions) <= 0 {
-		return nil, errors.New("No semver tag")
-	}
 
-	// golnag semver is not spec compliant
-	latestVersion := slices.MaxFunc(versions, semver.Compare)[1:]
-	hash, err := repo.ResolveRevision(plumbing.Revision(latestVersion))
-	return hash, err
+		var versions []string
+		tagRefs.ForEach(func(tafRef *plumbing.Reference) error {
+			// golnag semver is not spec compliant
+			version := "v" + tafRef.Name().Short()
+			if semver.IsValid(version) {
+				versions = append(versions, version)
+			}
+			return nil
+		})
+		if len(versions) <= 0 {
+			return nil, errors.New("No semver tag")
+		}
+
+		// golnag semver is not spec compliant
+		latestVersion := slices.MaxFunc(versions, semver.Compare)[1:]
+		hash, err := repo.ResolveRevision(plumbing.Revision(latestVersion))
+		return hash, err
+	default:
+		return nil, fmt.Errorf("unsupported tag model: %s", tag.Model)
+
+	}
 }
 
 func checkoutTag(tag *config.Tag, repo *git.Repository) error {
@@ -80,7 +84,7 @@ func cloneRepo(localPath, repoUrl, branchName string, tag *config.Tag) (*Git, er
 		return nil, err
 	}
 
-	if tag != nil {
+	if tag.Model != config.TagModelDisabled {
 		err = checkoutTag(tag, repo)
 		if err != nil {
 			return nil, err
@@ -141,7 +145,7 @@ func updateRepo(localPath, branchName string, tag *config.Tag) (*Git, error) {
 	if err != nil {
 		return nil, err
 	}
-	if tag != nil {
+	if tag.Model != config.TagModelDisabled {
 		err = checkoutTag(tag, repo)
 		if err != nil {
 			return nil, err
