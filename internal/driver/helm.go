@@ -8,7 +8,6 @@ import (
 
 	"sinanmohd.com/scid/internal/config"
 	"sinanmohd.com/scid/internal/git"
-	"sinanmohd.com/scid/internal/slack"
 
 	"github.com/BurntSushi/toml"
 	"github.com/getsops/sops/v3/decrypt"
@@ -16,7 +15,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const SCID_HELM_CONFIG_NAME = "scid"
+const (
+	SCID_HELM_CONFIG_NAME = "scid"
+	HELM_COLOR_HEX        = "#10148c"
+)
 
 type SCIDToml struct {
 	ReleaseName       string   `toml:"release_name" validate:"required"`
@@ -97,11 +99,11 @@ func HelmChartUpstallIfChaged(chartPath, scidTomlPath string, bg *git.Git) error
 
 	title := fmt.Sprintf("Helm Chart %s", filepath.Base(chartPath))
 	if execErr != nil {
-		extraText := fmt.Sprintf("watch path %s changed\n%s: %s", changedPath, execErr.Error(), output)
-		err = slack.SendMesg(bg, "#10148c", title, false, extraText)
+		description := fmt.Sprintf("watch path %s changed\n%s: %s", changedPath, execErr.Error(), output)
+		err = notify(bg, HELM_COLOR_HEX, title, false, description)
 	} else {
-		extraText := fmt.Sprintf("watch path %s changed\n%s", changedPath, output)
-		err = slack.SendMesg(bg, "#10148c", title, true, extraText)
+		description := fmt.Sprintf("watch path %s changed\n%s", changedPath, output)
+		err = notify(bg, HELM_COLOR_HEX, title, true, description)
 	}
 
 	return nil

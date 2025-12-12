@@ -33,18 +33,14 @@ type Field struct {
 	Short bool   `json:"short"`
 }
 
-func SendMesg(g *git.Git, color, title string, success bool, extraText string) error {
-	if config.Config.Slack == nil {
-		return nil
-	}
-
+func SendMesg(g *git.Git, color, title string, success bool, description string) error {
 	slackTitle := fmt.Sprintf("%s Update", title)
 	var text string
 	if success {
-		text = fmt.Sprintf("Successfully updated %s\n%s", title, extraText)
+		text = fmt.Sprintf("Successfully updated %s\n%s", title, description)
 	} else {
 		color = "#FF0000"
-		text = fmt.Sprintf("Failed to update %s\n%s", title, extraText)
+		text = fmt.Sprintf("Failed to update %s\n%s", title, description)
 	}
 	log.Info().Msgf("Sending Slack Message: %s", slackTitle)
 

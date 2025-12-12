@@ -6,7 +6,6 @@ import (
 
 	"sinanmohd.com/scid/internal/config"
 	"sinanmohd.com/scid/internal/git"
-	"sinanmohd.com/scid/internal/slack"
 
 	"github.com/rs/zerolog/log"
 )
@@ -27,11 +26,11 @@ func JobRunIfChaged(name string, job config.JobConfig, g *git.Git) error {
 	}
 
 	if execErr != nil {
-		extraText := fmt.Sprintf("watch path %s changed\n%s: %s", changedPath, execErr.Error(), output)
-		err = slack.SendMesg(g, color, name, false, extraText)
+		description := fmt.Sprintf("watch path %s changed\n%s: %s", changedPath, execErr.Error(), output)
+		err = notify(g, color, name, false, description)
 	} else {
-		extraText := fmt.Sprintf("watch path %s changed\n%s", changedPath, output)
-		err = slack.SendMesg(g, color, name, true, extraText)
+		description := fmt.Sprintf("watch path %s changed\n%s", changedPath, output)
+		err = notify(g, color, name, true, description)
 	}
 	if err != nil {
 		return err
