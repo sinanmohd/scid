@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	SCID_HELM_CONFIG_NAME = "scid"
-	HELM_COLOR_HEX        = "#10148c"
+	scidHelmConfigName = "scid"
+	helmColorHex       = "#10148c"
 )
 
 type SCIDToml struct {
@@ -100,10 +100,10 @@ func HelmChartUpstallIfChaged(chartPath, scidTomlPath string, bg *git.Git) error
 	title := fmt.Sprintf("Helm Chart %s", filepath.Base(chartPath))
 	if execErr != nil {
 		description := fmt.Sprintf("watch path %s changed\n%s: %s", changedPath, execErr.Error(), output)
-		err = notify(bg, HELM_COLOR_HEX, title, false, description)
+		err = notify(bg, helmColorHex, title, false, description)
 	} else {
 		description := fmt.Sprintf("watch path %s changed\n%s", changedPath, output)
-		err = notify(bg, HELM_COLOR_HEX, title, true, description)
+		err = notify(bg, helmColorHex, title, true, description)
 	}
 
 	return nil
@@ -128,9 +128,9 @@ func HelmChartsUpstallIfChaged(helm *config.Helm, bg *git.Git) error {
 	}
 	var configName string
 	if helm.Env == "" {
-		configName = fmt.Sprintf("%s.toml", SCID_HELM_CONFIG_NAME)
+		configName = fmt.Sprintf("%s.toml", scidHelmConfigName)
 	} else {
-		configName = fmt.Sprintf("%s.%s.toml", SCID_HELM_CONFIG_NAME, helm.Env)
+		configName = fmt.Sprintf("%s.%s.toml", scidHelmConfigName, helm.Env)
 	}
 
 	var helmWg sync.WaitGroup

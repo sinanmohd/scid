@@ -10,6 +10,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const defaultColorHex = "#10148c"
+
 func JobRunIfChaged(name string, job config.JobConfig, g *git.Git) error {
 	output, changedPath, execErr, err := ExecIfChaged(job.WatchPaths, job.ExecLine, g)
 	if err != nil {
@@ -20,7 +22,7 @@ func JobRunIfChaged(name string, job config.JobConfig, g *git.Git) error {
 
 	var color string
 	if job.SlackColor == "" {
-		color = "#000000"
+		color = defaultColorHex
 	} else {
 		color = job.SlackColor
 	}
