@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/lmittmann/tint"
 	"sinanmohd.com/scid/internal/config"
 	"sinanmohd.com/scid/internal/driver"
 	"sinanmohd.com/scid/internal/git"
@@ -35,6 +36,9 @@ func scid(g *git.Git) {
 }
 
 func main() {
+	logger := slog.New(tint.NewHandler(os.Stderr, nil))
+	slog.SetDefault(logger)
+
 	err := config.Init()
 	if err != nil {
 		log.Fatal("creating config: ", err)
