@@ -13,7 +13,7 @@ func notify(g *git.Git, color, title string, success bool, description string) e
 	if !success {
 		status = "failure"
 	}
-	slog.Info(title, "status", status, "description", description)
+	slog.Info("job completed", "title", title, "status", status, "description", description)
 
 	if config.Config.Slack != nil {
 		return slack.SendMesg(g, color, title, success, description)

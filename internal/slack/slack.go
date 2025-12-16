@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"sinanmohd.com/scid/internal/config"
 	"sinanmohd.com/scid/internal/git"
 )
@@ -42,7 +42,7 @@ func SendMesg(g *git.Git, color, title string, success bool, description string)
 		color = "#FF0000"
 		text = fmt.Sprintf("Failed to update %s\n%s", title, description)
 	}
-	log.Info().Msgf("Sending Slack Message: %s", slackTitle)
+	slog.Info("sending Slack message", "title", slackTitle)
 
 	data := Payload{
 		Channel: config.Config.Slack.Channel,

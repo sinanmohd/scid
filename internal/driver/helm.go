@@ -2,6 +2,7 @@ package driver
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	"github.com/getsops/sops/v3/decrypt"
 	"github.com/go-playground/validator/v10"
 	"github.com/hmdsefi/gograph"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -82,7 +82,7 @@ func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
 		scidToml.chartPath,
 	}
 
-	output, changedPath, execErr, err := ExecIfChaged(changeWatchPaths, execLine, bg)
+	output, changedPath, execErr, err := ExecIfChaged(filepath.Base(scidToml.chartPath), changeWatchPaths, execLine, bg)
 	if err != nil {
 		return err
 	} else if changedPath == "" {
@@ -121,7 +121,7 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git
 			go func() {
 				err := HelmChartUpstallIfChaged(scidToml, bg)
 				if err != nil {
-					log.Error().Err(err).Msgf("Upstalling Helm Chart %s", scidToml.chartPath)
+					slog.Error("upstalling Helm chart", "chartPath", scidToml.chartPath)
 				}
 				helmWg.Done()
 			}()

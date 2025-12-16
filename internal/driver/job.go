@@ -2,18 +2,17 @@ package driver
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"sinanmohd.com/scid/internal/config"
 	"sinanmohd.com/scid/internal/git"
-
-	"github.com/rs/zerolog/log"
 )
 
 const defaultColorHex = "#10148c"
 
 func JobRunIfChaged(name string, job config.JobConfig, g *git.Git) error {
-	output, changedPath, execErr, err := ExecIfChaged(job.WatchPaths, job.ExecLine, g)
+	output, changedPath, execErr, err := ExecIfChaged(name, job.WatchPaths, job.ExecLine, g)
 	if err != nil {
 		return err
 	} else if changedPath == "" {
@@ -46,7 +45,7 @@ func JobRunIfChagedWrapped(name string, job config.JobConfig, bg *git.Git, wg *s
 	go func() {
 		err := JobRunIfChaged(name, job, bg)
 		if err != nil {
-			log.Error().Err(err).Msgf("Running Job %s", name)
+			slog.Error("running job", "job", name)
 		}
 
 		wg.Done()

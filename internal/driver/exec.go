@@ -1,15 +1,14 @@
 package driver
 
 import (
+	"log/slog"
 	"os/exec"
-
-	"github.com/rs/zerolog/log"
 
 	"sinanmohd.com/scid/internal/config"
 	"sinanmohd.com/scid/internal/git"
 )
 
-func ExecIfChaged(paths, execLine []string, g *git.Git) (string, string, error /* exec error */, error) {
+func ExecIfChaged(title string, paths, execLine []string, g *git.Git) (string, string, error /* exec error */, error) {
 	var changed string
 	if g.OldHash == nil {
 		changed = "/"
@@ -17,10 +16,10 @@ func ExecIfChaged(paths, execLine []string, g *git.Git) (string, string, error /
 		changed = g.ArePathsChanged(paths)
 	}
 	if changed == "" {
-		log.Info().Msgf("Skipping %v, because 0 watch paths changed", execLine)
+		slog.Info("watch paths did not change, skipping", "title", title, "execLine", execLine)
 		return "", "", nil, nil
 	} else {
-		log.Info().Msgf("Execing %v, because watch path %s changed", execLine, changed)
+		slog.Info("watch path changed, starting", "title", title, "execLine", execLine, "changed", changed)
 	}
 
 	if config.Config.DryRun {

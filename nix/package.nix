@@ -19,7 +19,7 @@ buildGoModule (finalAttrs: {
     src = ../.;
   };
 
-  vendorHash = "sha256-BEYZM0b/vh4q9mg9dybOdlZnUbNNqNwH6qyJhWlSMrI=";
+  vendorHash = "sha256-8vd3hoBs/y0QhtvwVM+O5X9M89us/rCouSfwLYTpcgU=";
 
   meta = {
     description = "Your frenly neighbourhood CI/CD.";
