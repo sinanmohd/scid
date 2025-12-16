@@ -114,8 +114,8 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git
 			break
 		}
 
-		// wait for atleast a job to complete before trying
-		// to find vertexes(scidConf job) where outDegree == 0
+		// wait for atleast one job to complete before trying
+		// to find vertices(scidConf job) where outDegree == 0
 		<-jobComplete
 
 		for _, scidTomlVertex := range scidTomls {
