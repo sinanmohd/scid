@@ -3,6 +3,7 @@ package driver
 import (
 	"log/slog"
 	"os/exec"
+	"time"
 
 	"sinanmohd.com/scid/internal/config"
 	"sinanmohd.com/scid/internal/git"
@@ -23,6 +24,7 @@ func ExecIfChaged(title string, paths, execLine []string, g *git.Git) (string, s
 	}
 
 	if config.Config.DryRun {
+		time.Sleep(time.Second)
 		return "", changed, nil, nil
 	}
 
