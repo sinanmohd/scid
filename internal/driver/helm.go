@@ -132,7 +132,7 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git
 	helmWg.Wait()
 }
 
-func HelmChartsUpstallIfChaged(helm *config.Helm, bg *git.Git) error {
+func HelmChartsHandle(helm *config.Helm, bg *git.Git) error {
 	entries, err := os.ReadDir(helm.ChartsPath)
 	if err != nil {
 		return err

@@ -17,7 +17,7 @@ func scid(g *git.Git) {
 	wg.Add(1)
 	go func() {
 		if config.Config.Helm != nil {
-			driver.HelmChartsUpstallIfChaged(config.Config.Helm, g)
+			driver.HelmChartsHandle(config.Config.Helm, g)
 		}
 		wg.Done()
 	}()
@@ -32,8 +32,6 @@ func scid(g *git.Git) {
 }
 
 func main() {
-	defer slog.Info("see you, bye")
-
 	err := config.Init()
 	if err != nil {
 		log.Fatal("creating config: ", err)
