@@ -202,6 +202,7 @@ func scidConfGet(helm *config.Helm) (map[string]*SCIDConf, error) {
 func helmDependencyGraph(scidTomls map[string]*SCIDConf) (gograph.Graph[*SCIDConf], error) {
 	dependencyGraph := gograph.New[*SCIDConf](gograph.Acyclic())
 	for _, scidToml := range scidTomls {
+		dependencyGraph.AddVertex(gograph.NewVertex(scidToml))
 		for _, dependencyName := range scidToml.Dependencies {
 			dependency, ok := scidTomls[dependencyName]
 			if !ok {
