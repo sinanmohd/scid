@@ -146,6 +146,10 @@ func scidConfGet(helm *config.Helm) (map[string]*SCIDConf, error) {
 	}
 	scidTomls := make(map[string]*SCIDConf)
 	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
 		chartPath := filepath.Join(helm.ChartsPath, entry.Name())
 		scidTomlPath := filepath.Join(chartPath, configName)
 		_, err := os.Stat(scidTomlPath)

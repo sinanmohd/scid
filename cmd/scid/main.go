@@ -17,7 +17,10 @@ func scid(g *git.Git) {
 	wg.Add(1)
 	go func() {
 		if config.Config.Helm != nil {
-			driver.HelmChartsHandle(config.Config.Helm, g)
+			err := driver.HelmChartsHandle(config.Config.Helm, g)
+			if err != nil {
+				slog.Error("running helm driver", "error", err)
+			}
 		}
 		wg.Done()
 	}()
