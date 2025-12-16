@@ -132,18 +132,18 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git
 	helmWg.Wait()
 }
 
-func HelmChartsHandle(helm *config.Helm, bg *git.Git) error {
+func scidConfGet(helm *config.Helm) (map[string]*SCIDConf, error) {
 	entries, err := os.ReadDir(helm.ChartsPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	var configName string
 	if helm.Env == "" {
 		configName = fmt.Sprintf("%s.toml", scidHelmConfigName)
 	} else {
 		configName = fmt.Sprintf("%s.%s.toml", scidHelmConfigName, helm.Env)
 	}
-
 	scidTomls := make(map[string]*SCIDConf)
 	for _, entry := range entries {
 		chartPath := filepath.Join(helm.ChartsPath, entry.Name())
@@ -152,28 +152,32 @@ func HelmChartsHandle(helm *config.Helm, bg *git.Git) error {
 		if os.IsNotExist(err) {
 			continue
 		} else if err != nil {
-			return err
+			return nil, err
 		}
 
 		scidToml := new(SCIDConf)
 		_, err = toml.DecodeFile(scidTomlPath, scidToml)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = validator.New().Struct(scidToml)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		scidToml.chartPath = chartPath
 		scidTomls[entry.Name()] = scidToml
 	}
 
+	return scidTomls, nil
+}
+
+func helmDependencyGraph(scidTomls map[string]*SCIDConf) (gograph.Graph[*SCIDConf], error) {
 	dependencyGraph := gograph.New[*SCIDConf](gograph.Acyclic())
 	for _, scidToml := range scidTomls {
 		for _, dependencyName := range scidToml.Dependencies {
 			dependency, ok := scidTomls[dependencyName]
 			if !ok {
-				return fmt.Errorf("did not find dependency %s", dependencyName)
+				return nil, fmt.Errorf("did not find dependency %s", dependencyName)
 			}
 
 			_, err := dependencyGraph.AddEdge(
@@ -181,11 +185,23 @@ func HelmChartsHandle(helm *config.Helm, bg *git.Git) error {
 				gograph.NewVertex(dependency),
 			)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
+	return dependencyGraph, nil
+}
+
+func HelmChartsHandle(helm *config.Helm, bg *git.Git) error {
+	scidTomls, err := scidConfGet(helm)
+	if err != nil {
+		return err
+	}
+	dependencyGraph, err := helmDependencyGraph(scidTomls)
+	if err != nil {
+		return err
+	}
 	HelmChartUpstallGraph(dependencyGraph, bg)
 
 	return nil
