@@ -48,22 +48,26 @@ func subEnvStruct(structVal reflect.Value) error {
 func subEnvString(stringVal reflect.Value) error {
 	s := stringVal.String()
 
-	if strings.HasPrefix(s, "%env%:") {
-		envName := strings.TrimPrefix(s, "%env%:")
+	envName, found := strings.CutPrefix(s, "%env%:")
+	if found {
 		envVal, ok := os.LookupEnv(envName)
 		if !ok {
 			return fmt.Errorf("Environment variable %v is not set", envName)
 		}
 
 		stringVal.SetString(envVal)
-	} else if strings.HasPrefix(s, "%file%:") {
-		fileName := strings.TrimPrefix(s, "%file%:")
+		return nil
+	}
+
+	fileName, found := strings.CutPrefix(s, "%file%:")
+	if found {
 		data, err := os.ReadFile(fileName)
 		if err != nil {
 			return err
 		}
 
 		stringVal.SetString(strings.TrimSpace(string(data)))
+		return nil
 	}
 
 	return nil
