@@ -37,6 +37,7 @@ func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
 		"helm",
 		"upgrade",
 		"--install",
+		"--wait",
 		"--namespace", scidToml.NameSpace,
 		"--create-namespace",
 	}
