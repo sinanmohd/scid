@@ -104,6 +104,8 @@ func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
 
 func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git) {
 	var helmWg sync.WaitGroup
+	jobComplete := make(chan bool, 1)
+	jobComplete <- true
 
 	for {
 		scidTomls := dependencyGraph.GetAllVertices()
@@ -111,12 +113,15 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git
 			break
 		}
 
+		// wait for atleast a job to complete before trying
+		// to find vertexes(scidConf job) where outDegree == 0
+		<-jobComplete
+
 		for _, scidTomlVertex := range scidTomls {
 			if scidTomlVertex.OutDegree() != 0 {
 				continue
 			}
 
-			dependencyGraph.RemoveVertices(scidTomlVertex)
 			scidToml := scidTomlVertex.Label()
 			helmWg.Add(1)
 			go func() {
@@ -124,6 +129,16 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git
 				if err != nil {
 					slog.Error("upstalling Helm chart", "chartPath", scidToml.chartPath)
 				}
+				dependencyGraph.RemoveVertices(scidTomlVertex)
+
+				// only keep one value in buffer
+				select {
+				case <-jobComplete:
+					jobComplete <- true
+				default:
+					jobComplete <- true
+				}
+
 				helmWg.Done()
 			}()
 		}
