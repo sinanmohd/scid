@@ -7,6 +7,7 @@ require (
 	github.com/getsops/sops/v3 v3.10.2
 	github.com/go-git/go-git/v6 v6.0.0-20250728093604-6aaf1933ecab
 	github.com/go-playground/validator/v10 v10.27.0
+	github.com/hmdsefi/gograph v0.7.0
 	github.com/rs/zerolog v1.27.0
 	golang.org/x/mod v0.25.0
 	lukechampine.com/blake3 v1.4.1

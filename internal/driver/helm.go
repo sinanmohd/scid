@@ -12,6 +12,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/getsops/sops/v3/decrypt"
 	"github.com/go-playground/validator/v10"
+	"github.com/hmdsefi/gograph"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,27 +21,18 @@ const (
 	helmColorHex       = "#10148c"
 )
 
-type SCIDToml struct {
+type SCIDConf struct {
 	ReleaseName       string   `toml:"release_name" validate:"required"`
 	NameSpace         string   `toml:"namespace" validate:"required"`
 	ChartPathOverride string   `toml:"chart_path_override"`
 	ValuePaths        []string `toml:"value_paths"`
 	SopsValuePaths    []string `toml:"sops_value_paths"`
+	Dependencies      []string `toml:"dependencies"`
+
+	chartPath string
 }
 
-func HelmChartUpstallIfChaged(chartPath, scidTomlPath string, bg *git.Git) error {
-	var scidToml SCIDToml
-	// TODO: potential path traversal vulnerability i dont want to
-	// waste time on it. just mention it, if requirements change in the future
-	_, err := toml.DecodeFile(scidTomlPath, &scidToml)
-	if err != nil {
-		return err
-	}
-	err = validator.New().Struct(scidToml)
-	if err != nil {
-		return err
-	}
-
+func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
 	execLine := []string{
 		"helm",
 		"upgrade",
@@ -50,12 +42,12 @@ func HelmChartUpstallIfChaged(chartPath, scidTomlPath string, bg *git.Git) error
 	}
 
 	for _, path := range scidToml.ValuePaths {
-		fullPath := filepath.Join(chartPath, path)
+		fullPath := filepath.Join(scidToml.chartPath, path)
 		execLine = append(execLine, "--values", fullPath)
 	}
 
 	for _, encPath := range scidToml.SopsValuePaths {
-		fullEncPath := filepath.Join(chartPath, encPath)
+		fullEncPath := filepath.Join(scidToml.chartPath, encPath)
 		plainContent, err := decrypt.File(fullEncPath, "yaml")
 		if err != nil {
 			return err
@@ -81,13 +73,13 @@ func HelmChartUpstallIfChaged(chartPath, scidTomlPath string, bg *git.Git) error
 
 	var finalChartPath string
 	if scidToml.ChartPathOverride == "" {
-		finalChartPath = chartPath
+		finalChartPath = scidToml.chartPath
 	} else {
-		finalChartPath = filepath.Join(chartPath, scidToml.ChartPathOverride)
+		finalChartPath = filepath.Join(scidToml.chartPath, scidToml.ChartPathOverride)
 	}
 	execLine = append(execLine, scidToml.ReleaseName, finalChartPath)
 	changeWatchPaths := []string{
-		chartPath,
+		scidToml.chartPath,
 	}
 
 	output, changedPath, execErr, err := ExecIfChaged(changeWatchPaths, execLine, bg)
@@ -97,7 +89,7 @@ func HelmChartUpstallIfChaged(chartPath, scidTomlPath string, bg *git.Git) error
 		return nil
 	}
 
-	title := fmt.Sprintf("Helm Chart %s", filepath.Base(chartPath))
+	title := fmt.Sprintf("Helm Chart %s", filepath.Base(scidToml.chartPath))
 	if execErr != nil {
 		description := fmt.Sprintf("watch path %s changed\n%s: %s", changedPath, execErr.Error(), output)
 		err = notify(bg, helmColorHex, title, false, description)
@@ -109,16 +101,35 @@ func HelmChartUpstallIfChaged(chartPath, scidTomlPath string, bg *git.Git) error
 	return nil
 }
 
-func HelmChartUpstallIfChagedWrapped(chartPath, scidTomlPath string, bg *git.Git, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		err := HelmChartUpstallIfChaged(chartPath, scidTomlPath, bg)
-		if err != nil {
-			log.Error().Err(err).Msgf("Upstalling Helm Chart %s", filepath.Base(chartPath))
+func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git) {
+	var helmWg sync.WaitGroup
+
+	for {
+		scidTomls := dependencyGraph.GetAllVertices()
+		if len(scidTomls) == 0 {
+			break
 		}
 
-		wg.Done()
-	}()
+		for _, scidTomlVertex := range scidTomls {
+			if scidTomlVertex.OutDegree() != 0 {
+				continue
+			}
+
+			dependencyGraph.RemoveVertices(scidTomlVertex)
+			scidToml := scidTomlVertex.Label()
+			helmWg.Add(1)
+			go func() {
+				err := HelmChartUpstallIfChaged(scidToml, bg)
+				if err != nil {
+					log.Error().Err(err).Msgf("Upstalling Helm Chart %s", scidToml.chartPath)
+				}
+				helmWg.Done()
+			}()
+		}
+
+	}
+
+	helmWg.Wait()
 }
 
 func HelmChartsUpstallIfChaged(helm *config.Helm, bg *git.Git) error {
@@ -133,12 +144,8 @@ func HelmChartsUpstallIfChaged(helm *config.Helm, bg *git.Git) error {
 		configName = fmt.Sprintf("%s.%s.toml", scidHelmConfigName, helm.Env)
 	}
 
-	var helmWg sync.WaitGroup
+	scidTomls := make(map[string]*SCIDConf)
 	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
 		chartPath := filepath.Join(helm.ChartsPath, entry.Name())
 		scidTomlPath := filepath.Join(chartPath, configName)
 		_, err := os.Stat(scidTomlPath)
@@ -148,9 +155,38 @@ func HelmChartsUpstallIfChaged(helm *config.Helm, bg *git.Git) error {
 			return err
 		}
 
-		HelmChartUpstallIfChagedWrapped(chartPath, scidTomlPath, bg, &helmWg)
+		scidToml := new(SCIDConf)
+		_, err = toml.DecodeFile(scidTomlPath, scidToml)
+		if err != nil {
+			return err
+		}
+		err = validator.New().Struct(scidToml)
+		if err != nil {
+			return err
+		}
+		scidToml.chartPath = chartPath
+		scidTomls[entry.Name()] = scidToml
 	}
-	helmWg.Wait()
+
+	dependencyGraph := gograph.New[*SCIDConf](gograph.Acyclic())
+	for _, scidToml := range scidTomls {
+		for _, dependencyName := range scidToml.Dependencies {
+			dependency, ok := scidTomls[dependencyName]
+			if !ok {
+				return fmt.Errorf("did not find dependency %s", dependencyName)
+			}
+
+			_, err := dependencyGraph.AddEdge(
+				gograph.NewVertex(scidToml),
+				gograph.NewVertex(dependency),
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	HelmChartUpstallGraph(dependencyGraph, bg)
 
 	return nil
 }
