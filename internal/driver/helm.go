@@ -104,6 +104,7 @@ func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
 
 func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git) {
 	var helmWg sync.WaitGroup
+	scheduled := make(map[*SCIDConf]bool)
 	jobComplete := make(chan bool, 1)
 	jobComplete <- true
 
@@ -123,6 +124,13 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git
 			}
 
 			scidToml := scidTomlVertex.Label()
+			_, found := scheduled[scidToml]
+			if found {
+				continue
+			} else {
+				scheduled[scidToml] = true
+			}
+
 			helmWg.Add(1)
 			go func() {
 				err := HelmChartUpstallIfChaged(scidToml, bg)
