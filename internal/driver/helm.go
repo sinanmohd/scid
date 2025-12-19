@@ -22,12 +22,13 @@ const (
 )
 
 type SCIDConf struct {
-	ReleaseName       string   `toml:"release_name" validate:"required"`
-	NameSpace         string   `toml:"namespace" validate:"required"`
-	ChartPathOverride string   `toml:"chart_path_override"`
-	ValuePaths        []string `toml:"value_paths"`
-	SopsValuePaths    []string `toml:"sops_value_paths"`
-	Dependencies      []string `toml:"dependencies"`
+	ReleaseName        string   `toml:"release_name" validate:"required"`
+	NameSpace          string   `toml:"namespace" validate:"required"`
+	ChartPathOverride  string   `toml:"chart_path_override"`
+	ValuePaths         []string `toml:"value_paths"`
+	OptionalValuePaths []string `toml:"optional_value_paths"`
+	SopsValuePaths     []string `toml:"sops_value_paths"`
+	Dependencies       []string `toml:"dependencies"`
 
 	chartPath string
 }
@@ -45,6 +46,19 @@ func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
 	for _, path := range scidToml.ValuePaths {
 		fullPath := filepath.Join(scidToml.chartPath, path)
 		execLine = append(execLine, "--values", fullPath)
+	}
+
+	for _, path := range scidToml.OptionalValuePaths {
+		path, err := expandHome(path)
+		if err != nil {
+			return err
+		}
+		_, err = os.Stat(path)
+		if err != nil {
+			continue
+		}
+
+		execLine = append(execLine, "--values", path)
 	}
 
 	for _, encPath := range scidToml.SopsValuePaths {
