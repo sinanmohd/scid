@@ -47,6 +47,7 @@ type SCIDonfig struct {
 	Tag     Tag    `toml:"tag"`
 
 	ExitAfterClone bool         `toml:"exit_after_clone"`
+	ForceReRun     bool         `toml:"force_re_run"`
 	DryRun         bool         `toml:"dry_run"`
 	Slack          *SlackConfig `toml:"slack"`
 
@@ -92,6 +93,7 @@ func Init() error {
 	flag.StringVar(&Config.RepoUrl, "repo", Config.RepoUrl, "Git Repo URL")
 	flag.StringVar(&Config.Branch, "branch", Config.Branch, "Git Branch Name")
 	flag.BoolVar(&Config.DryRun, "dry-run", Config.DryRun, "Dry Run")
+	flag.BoolVar(&Config.ForceReRun, "force-re-run", Config.DryRun, "Force Re Run")
 	flag.BoolVar(&Config.ExitAfterClone, "exit-after-clone", Config.ExitAfterClone, "Exit After Git Clone")
 	flag.Parse()
 

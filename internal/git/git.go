@@ -227,6 +227,10 @@ func (g *Git) changedPathsSet() error {
 }
 
 func (g *Git) HeadMoved() bool {
+	if config.Config.ForceReRun {
+		return true
+	}
+
 	if config.Config.DryRun {
 		return true
 	} else if g.OldHash == nil {
@@ -237,6 +241,10 @@ func (g *Git) HeadMoved() bool {
 }
 
 func (g *Git) ArePathsChanged(prefixPaths []string) string {
+	if config.Config.ForceReRun {
+		return "/force-re-run"
+	}
+
 	for _, changedPath := range g.changedPaths {
 		for _, prefixPath := range prefixPaths {
 			if strings.HasPrefix(changedPath, prefixPath) {
