@@ -48,6 +48,9 @@ func main() {
 	if err != nil {
 		log.Fatal("pulling git repo: ", err)
 	}
+	if config.Config.ExitAfterClone {
+		return
+	}
 
 	originalDir, err := os.Getwd()
 	if err != nil {

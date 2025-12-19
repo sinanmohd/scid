@@ -46,8 +46,9 @@ type SCIDonfig struct {
 	RepoUrl string `toml:"repo_url" validate:"required"`
 	Tag     Tag    `toml:"tag"`
 
-	DryRun bool         `toml:"dry_run"`
-	Slack  *SlackConfig `toml:"slack"`
+	ExitAfterClone bool         `toml:"exit_after_clone"`
+	DryRun         bool         `toml:"dry_run"`
+	Slack          *SlackConfig `toml:"slack"`
 
 	Helm *Helm                `toml:"helm"`
 	Jobs map[string]JobConfig `toml:"jobs" validate:"dive"`
@@ -91,6 +92,7 @@ func Init() error {
 	flag.StringVar(&Config.RepoUrl, "repo", Config.RepoUrl, "Git Repo URL")
 	flag.StringVar(&Config.Branch, "branch", Config.Branch, "Git Branch Name")
 	flag.BoolVar(&Config.DryRun, "dry-run", Config.DryRun, "Dry Run")
+	flag.BoolVar(&Config.ExitAfterClone, "exit-after-clone", Config.ExitAfterClone, "Exit After Git Clone")
 	flag.Parse()
 
 	err = subEnv(&Config)
