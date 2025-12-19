@@ -25,17 +25,17 @@ func notify(g *git.Git, color, title string, success bool, description string) e
 	}
 }
 
-func expandHome(path string) (string, error) {
+func expandPath(path string) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", nil
 	}
 
 	if path == "~" {
-		return homeDir, nil
+		path = homeDir
 	} else if strings.HasPrefix(path, "~/") {
-		return filepath.Join(homeDir, path[2:]), nil
-	} else {
-		return path, nil
+		path = filepath.Join(homeDir, path[2:])
 	}
+
+	return os.ExpandEnv(path), nil
 }

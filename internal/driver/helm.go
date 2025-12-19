@@ -49,7 +49,7 @@ func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
 	}
 
 	for _, path := range scidToml.OptionalValuePaths {
-		path, err := expandHome(path)
+		path, err := expandPath(path)
 		if err != nil {
 			return err
 		}
