@@ -117,13 +117,16 @@ func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
 }
 
 func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git) {
+	var graphMutex sync.Mutex
 	var helmWg sync.WaitGroup
 	scheduled := make(map[*SCIDConf]bool)
 	jobComplete := make(chan bool, 1)
 	jobComplete <- true
 
 	for {
+		graphMutex.Lock()
 		scidTomls := dependencyGraph.GetAllVertices()
+		graphMutex.Unlock()
 		if len(scidTomls) == 0 {
 			break
 		}
@@ -151,7 +154,10 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git
 				if err != nil {
 					slog.Error("upstalling Helm chart", "chartPath", scidToml.chartPath)
 				}
+
+				graphMutex.Lock()
 				dependencyGraph.RemoveVertices(scidTomlVertex)
+				graphMutex.Unlock()
 
 				// only keep one value in buffer
 				select {
