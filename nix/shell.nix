@@ -1,7 +1,7 @@
 {
   mkShell,
   scid,
-  nixfmt-rfc-style,
+  nixfmt,
   gopls,
 }:
 
@@ -10,7 +10,7 @@ mkShell {
 
   buildInputs = [
     gopls
-    nixfmt-rfc-style
+    nixfmt
   ];
 
   shellHook = ''
