@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/transport/ssh"
 	"golang.org/x/mod/semver"
 	"lukechampine.com/blake3"
 	"sinanmohd.com/scid/internal/config"
@@ -73,13 +74,23 @@ func checkoutTag(tag *config.Tag, repo *git.Repository) error {
 	return nil
 }
 
-func cloneRepo(localPath, repoUrl, branchName string, tag *config.Tag) (*Git, error) {
-	repo, err := git.PlainClone(localPath, &git.CloneOptions{
+func cloneRepo(localPath, repoUrl, branchName string, sshKey []byte, tag *config.Tag) (*Git, error) {
+
+	cloneOpts := &git.CloneOptions{
 		URL:           repoUrl,
 		SingleBranch:  true,
 		ReferenceName: plumbing.NewBranchReferenceName(branchName),
 		Progress:      os.Stdout,
-	})
+	}
+	if len(sshKey) > 0 {
+		auth, err := ssh.NewPublicKeys("git", sshKey, "")
+		if err != nil {
+			return nil, err
+		}
+		cloneOpts.Auth = auth
+	}
+
+	repo, err := git.PlainClone(localPath, cloneOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +116,7 @@ func cloneRepo(localPath, repoUrl, branchName string, tag *config.Tag) (*Git, er
 	}, nil
 }
 
-func pullBranch(workTree *git.Worktree, branchName string) error {
+func pullBranch(workTree *git.Worktree, branchName string, sshKey []byte) error {
 	err := workTree.Checkout(&git.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName(branchName),
 	})
@@ -113,10 +124,19 @@ func pullBranch(workTree *git.Worktree, branchName string) error {
 		return err
 	}
 
-	err = workTree.Pull(&git.PullOptions{
+	pullOpts := &git.PullOptions{
 		SingleBranch: true,
-	})
+		Auth:         nil,
+	}
+	if len(sshKey) > 0 {
+		auth, err := ssh.NewPublicKeys("git", sshKey, "")
+		if err != nil {
+			return err
+		}
+		pullOpts.Auth = auth
+	}
 
+	err = workTree.Pull(pullOpts)
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return err
 	}
@@ -124,7 +144,7 @@ func pullBranch(workTree *git.Worktree, branchName string) error {
 	return nil
 }
 
-func updateRepo(localPath, branchName string, tag *config.Tag) (*Git, error) {
+func updateRepo(localPath, branchName string, tag *config.Tag, sshKey []byte) (*Git, error) {
 	// get oldHash
 	repo, err := git.PlainOpen(localPath)
 	if err != nil {
@@ -141,7 +161,7 @@ func updateRepo(localPath, branchName string, tag *config.Tag) (*Git, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = pullBranch(workTree, branchName)
+	err = pullBranch(workTree, branchName, sshKey)
 	if err != nil {
 		return nil, err
 	}
@@ -172,18 +192,18 @@ func updateRepo(localPath, branchName string, tag *config.Tag) (*Git, error) {
 	return &g, nil
 }
 
-func New(repoUrl, branchName string, tag *config.Tag) (*Git, error) {
+func New(repoUrl, branchName string, tag *config.Tag, sshKey []byte) (*Git, error) {
 	sum256 := blake3.Sum256([]byte(repoUrl + branchName))
 	localPath := fmt.Sprintf("%x", sum256)
 
 	_, err := os.Stat(localPath)
 	if os.IsNotExist(err) {
-		return cloneRepo(localPath, repoUrl, branchName, tag)
+		return cloneRepo(localPath, repoUrl, branchName, sshKey, tag)
 	} else if err != nil {
 		return nil, err
 	}
 
-	return updateRepo(localPath, branchName, tag)
+	return updateRepo(localPath, branchName, tag, sshKey)
 }
 
 // go-git has concurrency issues: https://github.com/go-git/go-git/issues/773
