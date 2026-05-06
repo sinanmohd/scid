@@ -21,7 +21,12 @@ const (
 	helmColorHex       = "#10148c"
 )
 
-type SCIDConf struct {
+type scidHelmConf struct {
+	Version string                     `toml:"version"`
+	Env     map[string]scidHelmConfEnv `toml:"env"`
+}
+
+type scidHelmConfEnv struct {
 	ReleaseName        string   `toml:"release_name" validate:"required"`
 	NameSpace          string   `toml:"namespace" validate:"required"`
 	ChartPathOverride  string   `toml:"chart_path_override"`
@@ -33,7 +38,7 @@ type SCIDConf struct {
 	chartPath string
 }
 
-func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
+func HelmChartUpstallIfChaged(scidToml *scidHelmConfEnv, bg *git.Git) error {
 	execLine := []string{
 		"helm",
 		"upgrade",
@@ -116,10 +121,10 @@ func HelmChartUpstallIfChaged(scidToml *SCIDConf, bg *git.Git) error {
 	return nil
 }
 
-func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git) {
+func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*scidHelmConfEnv], bg *git.Git) {
 	var graphMutex sync.Mutex
 	var helmWg sync.WaitGroup
-	scheduled := make(map[*SCIDConf]bool)
+	scheduled := make(map[*scidHelmConfEnv]bool)
 	jobComplete := make(chan bool, 1)
 	jobComplete <- true
 
@@ -176,19 +181,16 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*SCIDConf], bg *git.Git
 	helmWg.Wait()
 }
 
-func scidConfGet(helm *config.Helm) (map[string]*SCIDConf, error) {
+func scidConfGet(helm *config.Helm) (map[string]*scidHelmConfEnv, error) {
 	entries, err := os.ReadDir(helm.ChartsPath)
 	if err != nil {
 		return nil, err
 	}
 
 	var configName string
-	if helm.Env == "" {
-		configName = fmt.Sprintf("%s.toml", scidHelmConfigName)
-	} else {
-		configName = fmt.Sprintf("%s.%s.toml", scidHelmConfigName, helm.Env)
-	}
-	scidTomls := make(map[string]*SCIDConf)
+	var scidHelmConf scidHelmConf
+	configName = fmt.Sprintf("%s.toml", scidHelmConfigName)
+	scidHelmConfEnvs := make(map[string]*scidHelmConfEnv)
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -203,24 +205,29 @@ func scidConfGet(helm *config.Helm) (map[string]*SCIDConf, error) {
 			return nil, err
 		}
 
-		scidToml := new(SCIDConf)
-		_, err = toml.DecodeFile(scidTomlPath, scidToml)
+		_, err = toml.DecodeFile(scidTomlPath, &scidHelmConf)
 		if err != nil {
 			return nil, err
 		}
-		err = validator.New().Struct(scidToml)
+		err = validator.New().Struct(scidHelmConf)
 		if err != nil {
 			return nil, err
 		}
-		scidToml.chartPath = chartPath
-		scidTomls[entry.Name()] = scidToml
+
+		scidHelmConfEnv, ok := scidHelmConf.Env[helm.Env]
+		if !ok {
+			continue
+		}
+
+		scidHelmConfEnv.chartPath = chartPath
+		scidHelmConfEnvs[entry.Name()] = &scidHelmConfEnv
 	}
 
-	return scidTomls, nil
+	return scidHelmConfEnvs, nil
 }
 
-func helmDependencyGraph(scidTomls map[string]*SCIDConf) (gograph.Graph[*SCIDConf], error) {
-	dependencyGraph := gograph.New[*SCIDConf](gograph.Acyclic())
+func helmDependencyGraph(scidTomls map[string]*scidHelmConfEnv) (gograph.Graph[*scidHelmConfEnv], error) {
+	dependencyGraph := gograph.New[*scidHelmConfEnv](gograph.Acyclic())
 	for _, scidToml := range scidTomls {
 		dependencyGraph.AddVertex(gograph.NewVertex(scidToml))
 		for _, dependencyName := range scidToml.Dependencies {
@@ -243,11 +250,11 @@ func helmDependencyGraph(scidTomls map[string]*SCIDConf) (gograph.Graph[*SCIDCon
 }
 
 func HelmChartsHandle(helm *config.Helm, bg *git.Git) error {
-	scidTomls, err := scidConfGet(helm)
+	scidHelmConfEnv, err := scidConfGet(helm)
 	if err != nil {
 		return err
 	}
-	dependencyGraph, err := helmDependencyGraph(scidTomls)
+	dependencyGraph, err := helmDependencyGraph(scidHelmConfEnv)
 	if err != nil {
 		return err
 	}
