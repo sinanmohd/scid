@@ -187,9 +187,7 @@ func scidConfGet(helm *config.Helm) (map[string]*scidHelmConfEnv, error) {
 		return nil, err
 	}
 
-	var configName string
-	var scidHelmConf scidHelmConf
-	configName = fmt.Sprintf("%s.toml", scidHelmConfigName)
+	configName := fmt.Sprintf("%s.toml", scidHelmConfigName)
 	scidHelmConfEnvs := make(map[string]*scidHelmConfEnv)
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -205,6 +203,7 @@ func scidConfGet(helm *config.Helm) (map[string]*scidHelmConfEnv, error) {
 			return nil, err
 		}
 
+		var scidHelmConf scidHelmConf
 		_, err = toml.DecodeFile(scidTomlPath, &scidHelmConf)
 		if err != nil {
 			return nil, err
@@ -214,10 +213,10 @@ func scidConfGet(helm *config.Helm) (map[string]*scidHelmConfEnv, error) {
 			return nil, err
 		}
 
-		var scidHelmConfEnv scidHelmConfEnv
+		scidHelmConfEnv := new(scidHelmConfEnv)
 		var ok bool
 		for _, helmEnv := range helm.EnvPriority {
-			scidHelmConfEnv, ok = scidHelmConf.Env[helmEnv]
+			*scidHelmConfEnv, ok = scidHelmConf.Env[helmEnv]
 			if ok {
 				break
 			}
@@ -227,7 +226,7 @@ func scidConfGet(helm *config.Helm) (map[string]*scidHelmConfEnv, error) {
 		}
 
 		scidHelmConfEnv.chartPath = chartPath
-		scidHelmConfEnvs[entry.Name()] = &scidHelmConfEnv
+		scidHelmConfEnvs[entry.Name()] = scidHelmConfEnv
 	}
 
 	return scidHelmConfEnvs, nil
@@ -235,7 +234,7 @@ func scidConfGet(helm *config.Helm) (map[string]*scidHelmConfEnv, error) {
 
 func helmDependencyGraph(scidTomls map[string]*scidHelmConfEnv) (gograph.Graph[*scidHelmConfEnv], error) {
 	dependencyGraph := gograph.New[*scidHelmConfEnv](gograph.Acyclic())
-	for _, scidToml := range scidTomls {
+	for name, scidToml := range scidTomls {
 		dependencyGraph.AddVertex(gograph.NewVertex(scidToml))
 		for _, dependencyName := range scidToml.Dependencies {
 			dependency, ok := scidTomls[dependencyName]
@@ -248,7 +247,7 @@ func helmDependencyGraph(scidTomls map[string]*scidHelmConfEnv) (gograph.Graph[*
 				gograph.NewVertex(dependency),
 			)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%s: %s <-> %s", err, name, dependencyName)
 			}
 		}
 	}
@@ -258,6 +257,7 @@ func helmDependencyGraph(scidTomls map[string]*scidHelmConfEnv) (gograph.Graph[*
 
 func HelmChartsHandle(helm *config.Helm, bg *git.Git) error {
 	scidHelmConfEnv, err := scidConfGet(helm)
+
 	if err != nil {
 		return err
 	}
