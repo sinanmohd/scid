@@ -214,7 +214,14 @@ func scidConfGet(helm *config.Helm) (map[string]*scidHelmConfEnv, error) {
 			return nil, err
 		}
 
-		scidHelmConfEnv, ok := scidHelmConf.Env[helm.Env]
+		var scidHelmConfEnv scidHelmConfEnv
+		var ok bool
+		for _, helmEnv := range helm.EnvPriority {
+			scidHelmConfEnv, ok = scidHelmConf.Env[helmEnv]
+			if ok {
+				break
+			}
+		}
 		if !ok {
 			continue
 		}

@@ -37,8 +37,8 @@ type Tag struct {
 }
 
 type Helm struct {
-	Env        string `toml:"env"`
-	ChartsPath string `toml:"charts_path" validate:"required"`
+	EnvPriority []string `toml:"env_priority"`
+	ChartsPath  string   `toml:"charts_path" validate:"required"`
 }
 
 type SCIDonfig struct {
