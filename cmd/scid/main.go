@@ -44,7 +44,7 @@ func main() {
 		log.Fatal("creating config: ", err)
 	}
 
-	g, err := git.New(config.Config.RepoUrl, config.Config.Branch, &config.Config.Tag, []byte(config.Config.SSHKey))
+	g, err := git.New(config.Config.RepoUrl, config.Config.Branch, &config.Config.Tag, config.Config.SSH)
 	if err != nil {
 		log.Fatal("pulling git repo: ", err)
 	}

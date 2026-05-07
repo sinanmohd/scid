@@ -41,12 +41,17 @@ type Helm struct {
 	ChartsPath  string   `toml:"charts_path" validate:"required"`
 }
 
+type SSHConfig struct {
+	KnownHosts string `toml:"known_hosts"`
+	// any ssh key with pull access (eg: GitHub Deploy keys)
+	Key string `toml:"key"`
+}
+
 type SCIDonfig struct {
-	Branch  string `toml:"branch" validate:"required"`
-	RepoUrl string `toml:"repo_url" validate:"required"`
-	Tag     Tag    `toml:"tag"`
-	// GITHUB Deploy keys, or any ssh key with pull access
-	SSHKey string `toml:"ssh_key"`
+	Branch  string     `toml:"branch" validate:"required"`
+	RepoUrl string     `toml:"repo_url" validate:"required"`
+	Tag     Tag        `toml:"tag"`
+	SSH     *SSHConfig `toml:"ssh"`
 
 	ExitAfterClone bool         `toml:"exit_after_clone"`
 	ForceReRun     bool         `toml:"force_re_run"`
