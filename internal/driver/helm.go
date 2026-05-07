@@ -157,7 +157,7 @@ func HelmChartUpstallGraph(dependencyGraph gograph.Graph[*scidHelmConfEnv], bg *
 			go func() {
 				err := HelmChartUpstallIfChaged(scidToml, bg)
 				if err != nil {
-					slog.Error("upstalling Helm chart", "chartPath", scidToml.chartPath)
+					slog.Error("upstalling Helm chart", "chartPath", scidToml.chartPath, "err", err)
 				}
 
 				graphMutex.Lock()
