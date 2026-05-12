@@ -21,6 +21,9 @@
         {
           scid = pkgs.callPackage ./nix/package.nix { };
           default = self.packages.${system}.scid;
+          oci = pkgs.callPackage ./nix/oci.nix {
+            scid = self.packages.${system}.scid;
+          };
         }
       );
 
