@@ -280,13 +280,7 @@ func (g *Git) changedPathsSet() error {
 }
 
 func (g *Git) HeadMoved() bool {
-	if config.Config.ForceReRun {
-		return true
-	}
-
-	if config.Config.DryRun {
-		return true
-	} else if g.OldHash == nil {
+	if config.Config.ForceReRun || config.Config.DryRun || g.OldHash == nil {
 		return true
 	}
 

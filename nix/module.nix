@@ -62,46 +62,32 @@ in
       };
     };
 
-    systemd =
-      let
-        name = "scid";
-        meta.description = "Your frenly neighbourhood CI/CD.";
-      in
-      {
-        timers.${name} = meta // {
-          wantedBy = [ "timers.target" ];
+    systemd = {
+      services.scid = rec {
+        description = "Your frenly neighbourhood CI/CD.";
+        wantedBy = [ "multi-user.target" ];
+        after = [
+          "network-online.target"
+        ]
+        ++ lib.optional config.services.k3s.enable "k3s.service";
+        wants = after;
+        path = cfg.path;
 
-          timerConfig = {
-            OnCalendar = "*:0/1";
-            Persistent = true;
-          };
-        };
+        # since it's a ci/cd, it itself might be updating itself
+        # so if we try to restart it, it would exit prematurely
+        restartIfChanged = false;
 
-        services.${name} = meta // rec {
-          description = "";
-          wantedBy = [ "multi-user.target" ];
-          after = [
-            "network-online.target"
-          ]
-          ++ lib.optional config.services.k3s.enable "k3s.service";
-          wants = after;
-          path = cfg.path;
+        environment = defaultEnvs // cfg.environment;
+        serviceConfig = {
+          Type = "simple";
+          Restart = "on-failure";
 
-          # since it's a ci/cd, it itself might be updating itself
-          # so if we try to restart it, it would exit prematurely
-          restartIfChanged = false;
+          StateDirectory = "scid";
+          WorkingDirectory = "%S/scid";
 
-          environment = defaultEnvs // cfg.environment;
-          serviceConfig = {
-            Type = "simple";
-            Restart = "on-failure";
-
-            StateDirectory = name;
-            WorkingDirectory = "%S/${name}";
-
-            ExecStart = lib.getExe cfg.package;
-          };
+          ExecStart = lib.getExe cfg.package;
         };
       };
+    };
   };
 }

@@ -48,15 +48,15 @@ type SSHConfig struct {
 }
 
 type SCIDonfig struct {
-	Branch  string     `toml:"branch" validate:"required"`
-	RepoUrl string     `toml:"repo_url" validate:"required"`
-	Tag     Tag        `toml:"tag"`
-	SSH     *SSHConfig `toml:"ssh"`
+	Branch       string     `toml:"branch" validate:"required"`
+	RepoUrl      string     `toml:"repo_url" validate:"required"`
+	Tag          Tag        `toml:"tag"`
+	SSH          *SSHConfig `toml:"ssh"`
+	PullInterval string     `toml:"pull_interval"`
 
-	ExitAfterClone bool         `toml:"exit_after_clone"`
-	ForceReRun     bool         `toml:"force_re_run"`
-	DryRun         bool         `toml:"dry_run"`
-	Slack          *SlackConfig `toml:"slack"`
+	ForceReRun bool         `toml:"force_re_run"`
+	DryRun     bool         `toml:"dry_run"`
+	Slack      *SlackConfig `toml:"slack"`
 
 	Helm *Helm                `toml:"helm"`
 	Jobs map[string]JobConfig `toml:"jobs" validate:"dive"`
@@ -83,6 +83,7 @@ func Init() error {
 	}
 
 	Config = SCIDonfig{
+		PullInterval: "60s",
 		Tag: Tag{
 			Model: TagModelDisabled,
 		},
@@ -101,7 +102,6 @@ func Init() error {
 	flag.StringVar(&Config.Branch, "branch", Config.Branch, "Git Branch Name")
 	flag.BoolVar(&Config.DryRun, "dry-run", Config.DryRun, "Dry Run")
 	flag.BoolVar(&Config.ForceReRun, "force-re-run", Config.DryRun, "Force Re Run")
-	flag.BoolVar(&Config.ExitAfterClone, "exit-after-clone", Config.ExitAfterClone, "Exit After Git Clone")
 	flag.Parse()
 
 	err = subEnv(&Config)

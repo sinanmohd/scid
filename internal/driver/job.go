@@ -52,12 +52,10 @@ func JobRunIfChagedWrapped(name string, job config.JobConfig, bg *git.Git, wg *s
 	}()
 }
 
-func JobsRunIfChaged(g *git.Git) error {
+func JobsRunIfChaged(g *git.Git) {
 	var jobWg sync.WaitGroup
 	for name, job := range config.Config.Jobs {
 		JobRunIfChagedWrapped(name, job, g, &jobWg)
 	}
 	jobWg.Wait()
-
-	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/lmittmann/tint"
 	"sinanmohd.com/scid/internal/config"
@@ -12,7 +13,7 @@ import (
 	"sinanmohd.com/scid/internal/git"
 )
 
-func scid(g *git.Git) {
+func driverRun(g *git.Git) {
 	var wg sync.WaitGroup
 
 	wg.Add(1)
@@ -35,6 +36,37 @@ func scid(g *git.Git) {
 	wg.Wait()
 }
 
+func scid(config config.SCIDonfig) (err error) {
+	slog.Debug("pulling new changes :)")
+	g, err := git.New(config.RepoUrl, config.Branch, &config.Tag, config.SSH)
+	if err != nil {
+		return err
+	}
+	if !g.HeadMoved() {
+		slog.Debug("no new commits ;(")
+		return
+	}
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	err = os.Chdir(g.LocalPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = os.Chdir(originalDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	slog.Info("branch HEAD moved", "oldHash", g.OldHash, "newHash", g.NewHash)
+	driverRun(g)
+	return nil
+}
+
 func main() {
 	logger := slog.New(tint.NewHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
@@ -44,34 +76,23 @@ func main() {
 		log.Fatal("creating config: ", err)
 	}
 
-	g, err := git.New(config.Config.RepoUrl, config.Config.Branch, &config.Config.Tag, config.Config.SSH)
+	interval, err := time.ParseDuration(config.Config.PullInterval)
 	if err != nil {
-		log.Fatal("pulling git repo: ", err)
-	}
-	if config.Config.ExitAfterClone {
-		return
+		log.Fatal("parsing pull interval: ", err)
 	}
 
-	originalDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = os.Chdir(g.LocalPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func() {
-		err = os.Chdir(originalDir)
+	for {
+		start := time.Now()
+
+		err = scid(config.Config)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error("running scid", "err", err)
 		}
-	}()
 
-	if !g.HeadMoved() {
-		slog.Info("no new commits : (")
-		return
+		elapsed := time.Since(start)
+		if elapsed < interval {
+			slog.Debug("sleeping", "duration", interval-elapsed)
+			time.Sleep(interval - elapsed)
+		}
 	}
-
-	slog.Info("branch HEAD moved", "oldHash", g.OldHash, "newHash", g.NewHash)
-	scid(g)
 }
