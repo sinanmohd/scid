@@ -11,6 +11,7 @@ import (
 	"sinanmohd.com/scid/internal/config"
 	"sinanmohd.com/scid/internal/driver"
 	"sinanmohd.com/scid/internal/git"
+	"sinanmohd.com/scid/internal/health"
 )
 
 func driverRun(g *git.Git) {
@@ -81,6 +82,7 @@ func main() {
 		log.Fatal("parsing pull interval: ", err)
 	}
 
+	health.Init()
 	for {
 		start := time.Now()
 
